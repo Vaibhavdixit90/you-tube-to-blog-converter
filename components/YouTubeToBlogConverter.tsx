@@ -2,22 +2,16 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Youtube, Search, Clipboard } from "lucide-react"; // Import Clipboard icon
-import { YoutubeTranscript } from "youtube-transcript"; // Correct import
+import { Youtube, Search, Clipboard } from "lucide-react";
+import { YoutubeTranscript } from "youtube-transcript";
 import { v4 as uuidv4 } from "uuid";
-
-type TranscriptLine = {
-  offset: number;
-  duration: number;
-  text: string;
-};
+import MarkdownRenderer from "./MarkdownRenderer";
 
 export default function YouTubeToBlogConverter() {
   const [videoUrl, setVideoUrl] = useState<string>("");
   const [blogContent, setBlogContent] = useState<string>("");
   const [videoTitle, setVideoTitle] = useState<string>("");
   const [videoThumbnail, setVideoThumbnail] = useState<string>("");
-  const [transcript, setTranscript] = useState<TranscriptLine[]>([]);
 
   const handleFetchVideoDetailsAndTranscript = async () => {
     const videoId = videoUrl.split("v=")[1]?.split("&")[0];
@@ -25,9 +19,8 @@ export default function YouTubeToBlogConverter() {
 
     if (videoId) {
       try {
-        // Fetch video details from YouTube API
         const response = await fetch(
-          `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=AIzaSyCzbRLy-KBwHBSGHIV52u8QgqFq5UkmI90`
+          `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${process.env.NEXT_PUBLIC_GOOGLE_API_KEY}`
         );
         const data = await response.json();
         const videoData = data.items[0]?.snippet;
@@ -35,42 +28,16 @@ export default function YouTubeToBlogConverter() {
 
         if (videoData) {
           setVideoTitle(videoData.title);
-          setVideoThumbnail(videoData.thumbnails.high.url); // Ensure thumbnail exists
+          setVideoThumbnail(videoData.thumbnails.high.url);
         }
 
-        // Fetch transcript using youtube-transcript
         const transcriptData = await YoutubeTranscript.fetchTranscript(
           videoUrl
         );
-
-        // Format timestamp in minutes:seconds format
-        const formatTimestamp = (seconds: number): string => {
-          const minutes = Math.floor(seconds / 60);
-          const remainingSeconds = Math.round(seconds % 60);
-          return `${minutes}:${
-            remainingSeconds < 10 ? "0" : ""
-          }${remainingSeconds}`;
-        };
-
-        // Generate blog content with timestamps and durations
-        const generatedBlog = `
-          <p>
-            ${transcriptData
-              .map((line: TranscriptLine, index: number) => {
-                const startTime = formatTimestamp(line.offset);
-                const endTime = formatTimestamp(line.offset + line.duration); // Calculate end time based on offset + duration
-                return `<strong>[${startTime} - ${endTime}]</strong> ${line.text}`;
-              })
-              .join(" ")}
-          </p>
-        `;
-
-        // Generate a unique ID for the video
         const uniqueId = uuidv4();
 
-        // Prepare the JSON object to log
         const videoDetails = {
-          uniqueId: uniqueId, // Unique ID added
+          uniqueId: uniqueId,
           searchId: videoId,
           videoUrl: videoUrl,
           videoThumbnailImage: videoData?.thumbnails?.high?.url,
@@ -78,32 +45,36 @@ export default function YouTubeToBlogConverter() {
           videoTranscript: transcriptData,
         };
 
-        // Log the JSON object to console
         console.log(
           "Video Details JSON:",
           JSON.stringify(videoDetails, null, 2)
         );
 
-        // POST request to Strapi API with "data" payload
-        const strapiResponse = await fetch(
-          "https://cms.flowautomate.io/api/video-to-blogs",
+        await fetch("https://cms.flowautomate.io/api/video-to-blogs", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ data: videoDetails }),
+        });
+
+        const lambdaResponse = await fetch(
+          "https://ahqtq5b5ms36lqgvw5kzirxxde0yzjmz.lambda-url.ap-south-1.on.aws",
           {
             method: "POST",
             headers: {
-              "Content-Type": "application/json",
+              "Content-Type": "text/plain",
             },
             body: JSON.stringify({
-              data: videoDetails, // Wrap videoDetails in a "data" object
+              prompt: JSON.stringify(videoDetails.videoTranscript),
             }),
           }
         );
 
-        const strapiData = await strapiResponse.json();
-        console.log("Response from Strapi:", strapiData);
+        const lambdaData = await lambdaResponse.json();
+        console.log("Response from Lambda:", lambdaData);
 
-        // Update state with the data
-        setTranscript(transcriptData);
-        setBlogContent(generatedBlog);
+        setBlogContent(lambdaData);
       } catch (error) {
         console.error("Error fetching video details or transcript:", error);
       }
@@ -119,7 +90,7 @@ export default function YouTubeToBlogConverter() {
         .then(() => {
           alert("Blog content copied to clipboard!");
         })
-        .catch((error) => {
+        .catch(() => {
           alert("Failed to copy content!");
         });
     }
@@ -132,9 +103,7 @@ export default function YouTubeToBlogConverter() {
       </h1>
 
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Left Column */}
         <div className="w-full lg:w-1/2 space-y-6">
-          {/* Input Section */}
           <Card className="p-4">
             <h2 className="text-xl font-semibold mb-4">Input</h2>
             <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-2">
@@ -155,7 +124,6 @@ export default function YouTubeToBlogConverter() {
             </div>
           </Card>
 
-          {/* Video Analysis Section */}
           <Card className="p-4">
             <h2 className="text-xl font-semibold mb-4">Video Analysis</h2>
             <div className="flex flex-col space-y-4">
@@ -175,26 +143,20 @@ export default function YouTubeToBlogConverter() {
           </Card>
         </div>
 
-        {/* Right Column */}
         <div className="w-full lg:w-1/2">
-          {/* Preview Section */}
           <Card className="p-4">
             <div className="flex items-center justify-between mb-4">
-              {/* Title Section */}
               <h2 className="text-xl font-semibold">Generated Blog</h2>
               <Button
                 onClick={handleCopyBlogContent}
                 className="text-white bg-black dark:bg-white rounded-full"
               >
-                <Clipboard className="h-5 w-5" />
-                Copy
+                <Clipboard className="h-5 w-5" /> Copy
               </Button>
             </div>
-
-            {/* Blog Content */}
             <div className="prose max-w-none min-h-[500px] p-4 border rounded-md overflow-auto">
               {blogContent ? (
-                <div dangerouslySetInnerHTML={{ __html: blogContent }} />
+                <div><MarkdownRenderer markdown={blogContent}/></div>
               ) : (
                 <div className="text-center mt-5 text-xl">
                   Your generated blog post will appear here...
