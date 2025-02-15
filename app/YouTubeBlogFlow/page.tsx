@@ -358,7 +358,7 @@ export default function YouTubeToBlogFlow() {
 
                 // 3. Fetch the video transcript.
                 const transcriptResponse = await fetch(
-                  `http://192.168.0.134:5000/transcript?video_id=${currentVideoId}`
+                  `http://13.232.223.95:5000/transcript?video_id=${currentVideoId}`
                 );
                 const transcriptJson = await transcriptResponse.json();
                 const transcript = transcriptJson?.transcript;

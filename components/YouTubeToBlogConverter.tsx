@@ -321,7 +321,7 @@ export default function YouTubeToBlogConverter() {
           setVideoDescription(videoDesc);
         }
         const transcriptResponse = await fetch(
-          `http://192.168.0.134:5000/transcript?video_id=${videoId}`
+          `http://13.232.223.95:5000/transcript?video_id=${videoId}`
         );
         const transcriptJson = await transcriptResponse.json();
         const transcript = transcriptJson?.transcript;
