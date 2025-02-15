@@ -1,7 +1,13 @@
 "use client"
 
-import YouTubeToBlogConverter from "../components/YouTubeToBlogConverter"
+import YouTubeToBlogFlow from "@/app/YouTubeBlogFlow/page";
+import YouTubeToBlogConverter from "../components/YouTubeToBlogConverter";
 
 export default function SyntheticV0PageForDeployment() {
-  return <YouTubeToBlogConverter />
+  return (
+    <>
+      <YouTubeToBlogConverter />
+      <YouTubeToBlogFlow />
+    </>
+  );
 }
